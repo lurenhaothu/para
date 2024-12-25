@@ -26,7 +26,7 @@ for i in range(len):
     mask = masks.pages[i].asarray()
 
     image = PIL.Image.fromarray(image)
-    #image.save(images_output_dir + str(i).zfill(3) + '.png')
+    image.save(images_output_dir + str(i).zfill(3) + '.png')
 
     mask[skimage.segmentation.find_boundaries(mask, connectivity=1, background=0)] = 0
     mask[mask != 0] = 1

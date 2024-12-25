@@ -8,6 +8,7 @@ import numpy as np
 import metrics
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
 
 expriment_name = "BCE_First_trial"
 cwd = os.getcwd()
@@ -74,12 +75,20 @@ for fold, (train_list, test_list) in enumerate(kf.split(fileList)):
 
         torch.save(unet.state_dict(), "epoch_" + str(i) + ".pth")
 
-        vi = 0
+        vi = 0.
+        
         for index, (image, mask) in enumerate(val_dataloader):
             unet.eval()
             with torch.no_grad():
                 pred = torch.softmax(unet(image.cuda()), 1)[:, 0:1, :, :]
                 vi += metrics.vi(mask.squeeze().numpy(), pred.cpu().squeeze().numpy())
+
+                if index == 0:
+                    fig, axes = plt.subplots(1,3)
+                    axes[0].imshow(image.squeeze().numpy())
+                    axes[1].imshow(mask.squeeze().numpy())
+                    axes[2].imshow(pred.squeeze().numpy())
+                    plt.show()
         vi /= len(val_dataloader)
         
         vi_record.append(vi)
