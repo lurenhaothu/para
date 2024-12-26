@@ -21,6 +21,8 @@ fileList = [i for i in range(numFile)]
 fold_num = 3
 kf = KFold(n_splits=fold_num, shuffle=True)
 
+batch_size = 4
+
 # TODO: Normalize whole dataset by its mean and std
 
 # What to do each eoch
@@ -33,8 +35,6 @@ kf = KFold(n_splits=fold_num, shuffle=True)
 
 for fold, (train_list, test_list) in enumerate(kf.split(fileList)):
 
-    batch_size = 4
-    
     train_size = int(0.8 * len(train_list))
     val_size = len(train_list) - train_size
     train_dataset, val_dataset = random_split(SNEMI3DDataset(train_list, augmentation=True), [train_size, val_size])
@@ -88,6 +88,7 @@ for fold, (train_list, test_list) in enumerate(kf.split(fileList)):
                     axes[0].imshow(image.squeeze().numpy())
                     axes[1].imshow(mask.squeeze().numpy())
                     axes[2].imshow(pred.squeeze().numpy())
+                    axes[4].imshow((pred.squeeze().numpy() > 0).astype(int))
                     plt.show()
         vi /= len(val_dataloader)
         
