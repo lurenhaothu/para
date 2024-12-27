@@ -22,17 +22,25 @@ def HomeMadeBCE():
 
 def VILoss():
     def loss(mask, pred):
+        with torch.no_grad():
+            pred_fix = (pred[:, 1:2, :, :] > 0.5).type(torch.int8)
         sum_p1 = torch.sum(mask)
         sum_g1 = torch.sum(pred[:, 1:2, :, :])
+        sum_g1_fix = torch.sum(pred_fix)
         sum_p1g1 = torch.sum(mask * pred[:, 1:2, :, :])
         sum_p0 = torch.sum(1 - mask)
         sum_g0 = torch.sum(pred[:, 0:1, :, :])
+        sum_g0_fix = torch.sum(1 - pred_fix)
         sum_p0g0 = torch.sum((1 - mask) * pred[:, 0:1, :, :])
+        sum_p0g1 = torch.sum((1 - mask) * pred[:, 1:2, :, :])
+        sum_p1g0 = torch.sum(mask * pred[:, 0:1, :, :])
         B, C, H, W = mask.shape
-        N = H * W
-        l1 = sum_p1 * sum_g1 / N / N / B * (torch.log(sum_p1 * sum_g1 / sum_p1g1 + 1e-7))
-        l0 = sum_p0 * sum_g0 / N / N / B * (torch.log(sum_p0 * sum_g0 / sum_p0g0 + 1e-7))
-        return l1 + l0
+        N = H * W * B
+        l11 = sum_p1 * sum_g1_fix / N / N * (torch.log(sum_p1 * sum_g1 / sum_p1g1 + 1e-7))
+        l00 = sum_p0 * sum_g0_fix / N / N * (torch.log(sum_p0 * sum_g0 / sum_p0g0 + 1e-7))
+        l01 = sum_p0 * sum_g1_fix / N / N * (torch.log(sum_p0 * sum_g1 / sum_p0g1 + 1e-7))
+        l10 = sum_p1 * sum_g0_fix / N / N * (torch.log(sum_p1 * sum_g0 / sum_p1g0 + 1e-7))
+        return torch.log(sum_p1 * sum_g1 / sum_p1g1 + 1e-7)
     return loss
 
 def DiceLoss():
