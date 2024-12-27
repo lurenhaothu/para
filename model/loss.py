@@ -10,5 +10,5 @@ def BCELoss():
 
 def HomeMadeBCE():
     def loss(mask, pred):
-        return - mask * torch.log(pred[:, 1:2, :, :]) - (1 - mask) * torch.log(pred[:, 0:1, :, :])
+        return torch.mean(- mask * torch.log(pred[:, 1:2, :, :]) - (1 - mask) * torch.log(pred[:, 0:1, :, :]))
     return loss
