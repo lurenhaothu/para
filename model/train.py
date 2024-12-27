@@ -9,6 +9,7 @@ import metrics
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import random
 
 expriment_name = "BCE_First_trial"
 cwd = os.getcwd()
@@ -33,11 +34,16 @@ batch_size = 4
 # save all in the parameter name
 # Generate illustration if needed
 
-for fold, (train_list, test_list) in enumerate(kf.split(fileList)):
+for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
 
     train_size = int(0.8 * len(train_list))
     val_size = len(train_list) - train_size
-    train_dataset, val_dataset = random_split(SNEMI3DDataset(train_list, augmentation=True), [train_size, val_size])
+
+    train_list = random.sample(train_and_val_list, train_size)
+    val_size = [i for i in train_and_val_list if i not in train_list]
+
+    train_dataset = SNEMI3DDataset(train_list, augmentation=True)
+    val_dataset = SNEMI3DDataset(train_list, augmentation=False)
     test_dataset = SNEMI3DDataset(test_list, augmentation=False)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
