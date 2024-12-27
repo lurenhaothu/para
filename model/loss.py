@@ -8,7 +8,42 @@ def BCELossWithClassWeight(weight):
 def BCELoss():
     return torch.nn.BCELoss()
 
+def HomeMadeBCE_withClassBalance():
+    def loss(mask, pred):
+        return torch.mean(- 2.5 * mask * torch.log(pred[:, 1:2, :, :]) - 0.6 * (1 - mask) * torch.log(pred[:, 0:1, :, :]))
+    return loss
+
 def HomeMadeBCE():
     def loss(mask, pred):
-        return torch.mean(- mask * torch.log(pred[:, 1:2, :, :]) - (1 - mask) * torch.log(pred[:, 0:1, :, :]))
+        with torch.no_grad():
+          error = (mask != (pred[:, 1:2, :, :] > 0.5).to(torch.int8)).to(torch.int8)
+        return torch.mean((0.5 + 0.5 * error) * (- 2.5 * mask * torch.log(pred[:, 1:2, :, :]) - 0.6 * (1 - mask) * torch.log(pred[:, 0:1, :, :])))
     return loss
+
+def VILoss():
+    def loss(mask, pred):
+        sum_p1 = torch.sum(mask)
+        sum_g1 = torch.sum(pred[:, 1:2, :, :])
+        sum_p1g1 = torch.sum(mask * pred[:, 1:2, :, :])
+        sum_p0 = torch.sum(1 - mask)
+        sum_g0 = torch.sum(pred[:, 0:1, :, :])
+        sum_p0g0 = torch.sum((1 - mask) * pred[:, 0:1, :, :])
+        B, C, H, W = mask.shape
+        N = H * W
+        l1 = sum_p1 * sum_g1 / N / N / B * (torch.log(sum_p1 * sum_g1 / sum_p1g1 + 1e-7))
+        l0 = sum_p0 * sum_g0 / N / N / B * (torch.log(sum_p0 * sum_g0 / sum_p0g0 + 1e-7))
+        return l1 + l0
+    return loss
+
+def DiceLoss():
+    def loss(mask, pred):
+        sum_p12 = torch.sum(torch.pow(mask, 2))
+        sum_g12 = torch.sum(torch.pow(pred[:, 1:2, :, :], 2))
+        sum_p1g1 = torch.sum(mask * pred[:, 1:2, :, :])
+        B, C, H, W = mask.shape
+        return - 2 * sum_p1g1 / (sum_p12 + sum_g12 + 1e-7)
+    return loss
+
+
+
+

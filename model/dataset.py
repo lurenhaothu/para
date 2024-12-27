@@ -19,7 +19,7 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
             self.transform = v2.Compose([
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True), # scale=True: 0-255 to 0-1
-                v2.Normalize(mean=mean, std=std),
+                # v2.Normalize(mean=mean, std=std),
                 v2.RandomCrop(size=(512, 512)),
                 v2.RandomHorizontalFlip(),
                 v2.RandomVerticalFlip()
@@ -28,7 +28,8 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
             self.transform = v2.Compose([
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
-                v2.Normalize(mean=mean, std=std)
+                v2.RandomCrop(size=(512, 512)),
+                # v2.Normalize(mean=mean, std=std)
             ])
 
     def __len__(self):
