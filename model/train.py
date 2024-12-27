@@ -1,7 +1,7 @@
 import torch
 from sklearn.model_selection import KFold
 from dataset import SNEMI3DDataset
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader
 from unet import UNet
 from PIL import Image
 import numpy as np
@@ -10,8 +10,11 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
+import loss
 
-expriment_name = "BCE_First_trial"
+expriment_name = "SelMadeBCE"
+lossFunc = loss.HomeMadeBCE()
+
 cwd = os.getcwd()
 curResultDir = cwd + "/results/" + expriment_name + "/"
 os.makedirs(curResultDir, exist_ok=True)
@@ -36,8 +39,10 @@ batch_size = 4
 
 for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
 
-    train_size = int(0.8 * len(train_list))
-    val_size = len(train_list) - train_size
+    print("fold: " + str(fold))
+
+    train_size = int(0.8 * len(train_and_val_list))
+    val_size = len(train_and_val_list) - train_size
 
     train_list = random.sample(train_and_val_list, train_size)
     val_size = [i for i in train_and_val_list if i not in train_list]
@@ -62,15 +67,15 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
     vi_record = []
     curmin_vi = None
 
-    for i in range(epoch_num):
-        print("epoch: ", i)
+    for epoch in range(epoch_num):
+        print("epoch: ", epoch)
         unet.train()
         for image, mask in train_dataloader:
             image = image.cuda()
             mask = mask.cuda()
             pred = torch.softmax(unet(image), 1)
             # print(pred.shape, mask.shape)
-            loss = torch.nn.BCELoss()(pred[:, 0:1, :, :], mask)
+            loss = lossFunc(pred, mask)
             print(loss)
 
             optimizer.zero_grad()
@@ -79,7 +84,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
             optimizer.step()
         scheduler.step()
 
-        torch.save(unet.state_dict(), "epoch_" + str(i) + ".pth")
+        # torch.save(unet.state_dict(), "epoch_" + str(i) + ".pth")
 
         vi = 0.
         
@@ -89,7 +94,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
                 pred = torch.softmax(unet(image.cuda()), 1)[:, 0:1, :, :]
                 vi += metrics.vi(mask.squeeze().numpy(), pred.cpu().squeeze().numpy())
 
-                if index == 0:
+                if epoch % 10 == 0 and index == 0:
                     fig, axes = plt.subplots(1,3)
                     axes[0].imshow(image.squeeze().numpy())
                     axes[1].imshow(mask.squeeze().numpy())
@@ -100,18 +105,16 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
         
         vi_record.append(vi)
         result = pd.DataFrame({
-            "Epoch": [i],
+            "Epoch": [epoch],
             "VI": [vi],
         })
-        if not os.path.exists(curResultDir + "val_result.csv"):
-            result.to_csv(curResultDir + "val_result.csv", index=False)
+        if not os.path.exists(curResultDir + "fold_" + str(fold) + "_val_result.csv"):
+            result.to_csv(curResultDir + "fold_" + str(fold) + "_val_result.csv", index=False)
         else:
-            result.to_csv(curResultDir + "val_result.csv", mode='a', header=False, index=False)
+            result.to_csv(curResultDir + "fold_" + str(fold) + "_val_result.csv", mode='a', header=False, index=False)
 
         if curmin_vi == None or vi < curmin_vi:
             curmin_vi = vi
-            torch.save(unet.state_dict(), curResultDir + "best_model_state.pth")
+            torch.save(unet.state_dict(), curResultDir + "fold_" + str(fold) + "_best_model_state.pth")
 
-        print("epoch: " + str(i) + " VI: " + str(vi))
-
-    break
+        print("epoch: " + str(epoch) + " VI: " + str(vi))
