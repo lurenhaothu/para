@@ -1,19 +1,23 @@
 import torch
 from sklearn.model_selection import KFold
-from dataset import SNEMI3DDataset
+from model.dataset import SNEMI3DDataset
 from torch.utils.data import DataLoader
-from unet import UNet
+from model.unet import UNet
 from PIL import Image
 import numpy as np
-import metrics
+import model.metrics as metrics
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
-import loss
+import model.loss as loss
+import time
+from concurrent.futures import ThreadPoolExecutor
 
-expriment_name = "SelMadeBCE"
-lossFunc = loss.HomeMadeBCE()
+expriment_name = "VILoss_1"
+lossFunc = loss.HomeMadeBCE_withClassBalance()
+
+# 100 0.5053152359607173 0.19049978520827424 20570595.0 84287005.0
 
 cwd = os.getcwd()
 curResultDir = cwd + "/results/" + expriment_name + "/"
@@ -44,7 +48,9 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
     train_size = int(0.8 * len(train_and_val_list))
     val_size = len(train_and_val_list) - train_size
 
-    train_list = random.sample(train_and_val_list, train_size)
+    print(type(train_and_val_list))
+
+    train_list = random.sample(train_and_val_list.tolist(), train_size)
     val_size = [i for i in train_and_val_list if i not in train_list]
 
     train_dataset = SNEMI3DDataset(train_list, augmentation=True)
@@ -52,8 +58,8 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
     test_dataset = SNEMI3DDataset(test_list, augmentation=False)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     epoch_num = 50
 
@@ -69,13 +75,16 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
 
     for epoch in range(epoch_num):
         print("epoch: ", epoch)
+
+        t1 = time.time()
+
         unet.train()
         for image, mask in train_dataloader:
             image = image.cuda()
             mask = mask.cuda()
-            pred = torch.softmax(unet(image), 1)
+            pred = torch.softmax(unet(image), 1)[:, 1:2, :, :]
             # print(pred.shape, mask.shape)
-            loss = lossFunc(pred, mask)
+            loss = lossFunc(mask, pred)
             print(loss)
 
             optimizer.zero_grad()
@@ -84,25 +93,51 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
             optimizer.step()
         scheduler.step()
 
+        t2 = time.time()
+
+        print("train time: ", t2 - t1)
+
         # torch.save(unet.state_dict(), "epoch_" + str(i) + ".pth")
 
+        # validation
         vi = 0.
-        
+        images = []
+        masks = []
+        preds = []
+        vis = []
         for index, (image, mask) in enumerate(val_dataloader):
             unet.eval()
             with torch.no_grad():
-                pred = torch.softmax(unet(image.cuda()), 1)[:, 0:1, :, :]
-                vi += metrics.vi(mask.squeeze().numpy(), pred.cpu().squeeze().numpy())
+                pred = torch.softmax(unet(image.cuda()), 1)[:, 1:2, :, :]
+                images.append(image.squeeze().numpy())
+                masks.append(mask.squeeze().numpy())
+                preds.append(pred.cpu().squeeze().numpy())
+              
+            # TODO: calculate loss grad on pixels
+            
+            if epoch % 2 == 0 and index == 0:
+                fig, axes = plt.subplots(2,3)
+                axes[0][0].imshow(image.squeeze().numpy())
+                axes[0][1].imshow(mask.squeeze().numpy())
+                axes[0][2].imshow(pred.cpu().squeeze().numpy())
+                axes[1][0].imshow((pred.cpu().squeeze().numpy() > 0.5).astype(int))
+                axes[1][1].imshow(mask.squeeze().numpy() - (pred.cpu().squeeze().numpy() > 0.5).astype(int))
 
-                if epoch % 10 == 0 and index == 0:
-                    fig, axes = plt.subplots(1,3)
-                    axes[0].imshow(image.squeeze().numpy())
-                    axes[1].imshow(mask.squeeze().numpy())
-                    axes[2].imshow(pred.squeeze().numpy())
-                    axes[4].imshow((pred.squeeze().numpy() > 0).astype(int))
-                    plt.show()
-        vi /= len(val_dataloader)
-        
+                pred.requires_grad = True
+                l = lossFunc(mask.cuda(), pred)
+                grad = torch.autograd.grad(l, pred)
+                print(grad[0].shape)
+                axes[1][2].imshow(grad[0].cpu().squeeze().numpy())
+
+                plt.show()
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            vis = list(executor.map(metrics.vi, masks, preds))
+        vi = np.mean(vis)
+
+        t3 = time.time()
+        print("val time: ", t3 - t2)
+
         vi_record.append(vi)
         result = pd.DataFrame({
             "Epoch": [epoch],
@@ -116,5 +151,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
         if curmin_vi == None or vi < curmin_vi:
             curmin_vi = vi
             torch.save(unet.state_dict(), curResultDir + "fold_" + str(fold) + "_best_model_state.pth")
+
+        print("saving time: ", time.time() - t3)
 
         print("epoch: " + str(epoch) + " VI: " + str(vi))
