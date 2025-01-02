@@ -2,6 +2,9 @@ import skimage.metrics as metrics
 from skimage.measure import label
 import numpy as np
 import time
+import cv2
+from skimage import morphology
+
 
 def vi(pred: np.array, mask: np.array):
     mask_label = label(mask, background=1, connectivity=1)
@@ -134,6 +137,42 @@ def compute_bettis_own(pred, label, filter_small_holes=False):
     betti0_error = abs(label_betti0-pred_betti0)
     betti1_error = abs(label_betti1-pred_betti1)
     return betti0_error+betti1_error, betti0_error, betti1_error
+
+# Post processing
+def prun(image, kernel_size):
+    """
+    Remove small forks
+    """
+    label_map, num_label = label(image, connectivity=1, background=1, return_num=True)
+    result = np.zeros(label_map.shape)
+    for i in range(1, num_label + 1):
+        tmp = np.zeros(label_map.shape)
+        tmp[label_map == i] = 1
+        D_kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        dil = cv2.dilate(tmp, D_kernel)
+        dst = cv2.erode(dil, D_kernel)
+        result[dst == 1] = 255
+    result = 255 - result
+    result[result == 255] = 1
+    result = np.uint8(result)
+    return result
+
+
+def post_process_label(in_img: np.ndarray, prun=False) -> np.ndarray:
+    out_img = morphology.skeletonize(in_img, method="lee")
+    out_img = morphology.dilation(out_img, morphology.square(3))
+    if prun:
+        out_img = prun(out_img, 4)  # 5
+    return out_img
+
+
+def post_process_output(in_img: np.ndarray, prun=False) -> np.ndarray:
+    out_img = morphology.dilation(in_img, morphology.square(3))  # 2  3
+    out_img = morphology.skeletonize(out_img, method="lee")
+    out_img = morphology.dilation(out_img, morphology.square(3))  # 5  3
+    if prun:
+        out_img = prun(out_img, 4)  # 5
+    return out_img
 
 if __name__ == "__main__":
     # test vi
