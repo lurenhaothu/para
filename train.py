@@ -104,7 +104,11 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
         images = []
         masks = []
         preds = []
+        preds_bin = []
+        masks_pospro = []
+        preds_pospro = []
         vis = []
+        vis_pospro = []
         for index, (image, mask) in enumerate(val_dataloader):
             unet.eval()
             with torch.no_grad():
@@ -112,6 +116,11 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
                 images.append(image.squeeze().numpy())
                 masks.append(mask.squeeze().numpy())
                 preds.append(pred.cpu().squeeze().numpy())
+                preds_bin.append((pred[-1] > 0.5).astype(int))
+
+                preds_bin_pospro.append(metrics.post_process_output(pred_bin[-1])[5:(512-5), 5:(512-5)])
+                masks_pospro.append(metrics.post_process_label(mask[-1])[5:(512-5), 5:(512-5)])
+                
               
             # TODO: calculate loss grad on pixels
             
@@ -131,8 +140,10 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
 
                 plt.show()
 
+        # with ThreadPoolExecutor(max_workers=10) as executor:
+        #     vis = list(executor.map(metrics.vi, masks, preds))
         with ThreadPoolExecutor(max_workers=10) as executor:
-            vis = list(executor.map(metrics.vi, masks, preds))
+            vis_pospro = list(executor.map(metrics.vi, masks_pospro, preds_bin))
         vi = np.mean(vis)
 
         t3 = time.time()

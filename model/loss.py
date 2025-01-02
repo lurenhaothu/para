@@ -1,10 +1,5 @@
 import torch
 
-def BCELossWithClassWeight(weight):
-    def loss(mask, pred):
-        return - weight[1] * mask * torch.log(pred) - weight[0] * (1 - mask) * torch.log(1 - pred)
-    return loss
-
 # def BCELoss():
 #     return torch.nn.BCELoss()
 
@@ -16,7 +11,7 @@ def HomeMadeBCE_withClassBalance():
 def HomeMadeBCE():
     def loss(mask, pred):
         with torch.no_grad():
-          error = (mask != (pred > 0.5).to(torch.int8)).to(torch.int8)
+            error = (mask != (pred > 0.5).to(torch.int8)).to(torch.int8)
         return torch.mean((0.5 + 0.5 * error) * (- 2.5 * mask * torch.log(pred) - 0.6 * (1 - mask) * torch.log(1 - pred)))
     return loss
 

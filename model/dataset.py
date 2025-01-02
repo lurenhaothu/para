@@ -14,12 +14,13 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
 
         mean = [0.5053152359607174]
         std = [0.16954360899089577]
+
+        self.norm = v2.Normalize(mean=mean, std=std)
         
         if augmentation:
             self.transform = v2.Compose([
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True), # scale=True: 0-255 to 0-1
-                # v2.Normalize(mean=mean, std=std),
                 v2.RandomCrop(size=(512, 512)),
                 v2.RandomHorizontalFlip(),
                 v2.RandomVerticalFlip()
@@ -29,7 +30,6 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
                 v2.RandomCrop(size=(512, 512)),
-                # v2.Normalize(mean=mean, std=std)
             ])
 
     def __len__(self):
@@ -39,7 +39,10 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
         image = Image.open(self.images_dir + str(self.indices[idx]).zfill(3) + '.png')
         mask = Image.open(self.masks_dir + str(self.indices[idx]).zfill(3) + '.png')
 
-        return self.transform((image, mask))
+        image, mask = self.transform((image, mask))
+        image = self.norm(image)
+        
+        return image, mask
     
 # test
 if __name__ == "__main__":
