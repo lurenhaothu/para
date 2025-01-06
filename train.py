@@ -105,10 +105,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
         masks = []
         preds = []
         preds_bin = []
-        masks_pospro = []
-        preds_bin_pospro = []
         vis = []
-        vis_pospro = []
         for index, (image, mask) in enumerate(val_dataloader):
             unet.eval()
             with torch.no_grad():
@@ -118,10 +115,6 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
                 preds.append(pred.cpu().squeeze().numpy())
                 preds_bin.append((preds[-1] > 0.5).astype(int))
 
-                preds_bin_pospro.append(metrics.post_process_output(preds_bin[-1])[5:(512-5), 5:(512-5)].astype(int))
-                masks_pospro.append(metrics.post_process_label(masks[-1])[5:(512-5), 5:(512-5)].astype(int))
-                
-              
             # TODO: calculate loss grad on pixels
             
             if epoch % 2 == 0 and index == 0:
@@ -140,11 +133,9 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
 
                 plt.show()
 
-        #with ThreadPoolExecutor(max_workers=10) as executor:
-        #    vis = list(executor.map(metrics.mdice, preds_bin, masks))
         with ThreadPoolExecutor(max_workers=10) as executor:
-            vis_pospro = list(executor.map(metrics.vi, preds_bin_pospro, masks_pospro))
-        vi = np.mean(vis_pospro)
+            vis = list(executor.map(metrics.mdice, preds_bin, masks))
+        vi = np.mean(vis)
 
         t3 = time.time()
         print("val time: ", t3 - t2)
@@ -163,6 +154,37 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
             curmin_vi = vi
             torch.save(unet.state_dict(), curResultDir + "fold_" + str(fold) + "_best_model_state.pth")
 
-        print("saving time: ", time.time() - t3)
-
         print("epoch: " + str(epoch) + " VI: " + str(vi))
+
+    #test
+    unet.load_state_dict(curResultDir + "fold_" + str(fold) + "_best_model_state.pth")
+    unet.eval()
+    
+    images_test = []
+    masks_test = []
+    preds_test = []
+    preds_bin_test = []
+    vis_test = []
+    for index, (image, mask) in enumerate(test_dataloader):
+        unet.eval()
+        with torch.no_grad():
+            pred = torch.softmax(unet(image.cuda()), 1)[:, 1:2, :, :]
+            images_test.append(image.squeeze().numpy())
+            masks_test.append(mask.squeeze().numpy())
+            preds_test.append(pred.cpu().squeeze().numpy())
+            preds_bin_test.append((preds[-1] > 0.5).astype(int))
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        vis_test = list(executor.map(metrics.mdice, preds_bin, masks))
+    vi_test = np.mean(vis_test)
+
+    test_result = pd.DataFrame({
+        "Fold": [fold],
+        "VI": [vi_test],
+    })
+    if not os.path.exists(curResultDir + "_test_result.csv"):
+        result.to_csv(curResultDir + "_test_result.csv", index=False)
+    else:
+        result.to_csv(curResultDir + "_test_result.csv", mode='a', header=False, index=False)
+
+    print("fold: " + str(fold) + " VI: " + str(vi_test))
