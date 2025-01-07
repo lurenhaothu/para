@@ -5,7 +5,7 @@ import torch
 
 def HomeMadeBCE_withClassBalance(): #20570595.0 84287005.0
     def loss(mask, pred):
-        return torch.mean(- 2.5 * mask * torch.log(pred) - 0.6 * (1 - mask) * torch.log(1 - pred))
+        return torch.mean(- 2.5 * mask * torch.log(pred + 1e-7) - 0.6 * (1 - mask) * torch.log(1 - pred + 1e-7))
     return loss
 
 def HomeMadeBCE():

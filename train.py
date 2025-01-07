@@ -14,7 +14,7 @@ import model.loss as loss
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-expriment_name = "VILoss_1"
+expriment_name = "Weight_BCE_b_10_1-6-2025"
 lossFunc = loss.HomeMadeBCE_withClassBalance()
 
 # 100 0.5053152359607173 0.19049978520827424 20570595.0 84287005.0
@@ -29,7 +29,7 @@ fileList = [i for i in range(numFile)]
 fold_num = 3
 kf = KFold(n_splits=fold_num, shuffle=True)
 
-batch_size = 4
+batch_size = 10
 
 # TODO: Normalize whole dataset by its mean and std
 
@@ -134,7 +134,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
                 plt.show()
 
         with ThreadPoolExecutor(max_workers=10) as executor:
-            vis = list(executor.map(metrics.mdice, preds_bin, masks))
+            vis = list(executor.map(metrics.vi, preds_bin, masks))
         vi = np.mean(vis)
 
         t3 = time.time()
@@ -157,7 +157,8 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
         print("epoch: " + str(epoch) + " VI: " + str(vi))
 
     #test
-    unet.load_state_dict(curResultDir + "fold_" + str(fold) + "_best_model_state.pth")
+    best_state_dict = torch.load(curResultDir + "fold_" + str(fold) + "_best_model_state.pth")
+    unet.load_state_dict(best_state_dict)
     unet.eval()
     
     images_test = []
@@ -175,16 +176,19 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
             preds_bin_test.append((preds[-1] > 0.5).astype(int))
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        vis_test = list(executor.map(metrics.mdice, preds_bin, masks))
+        vis_test = list(executor.map(metrics.vi, preds_bin_test, masks_test))
     vi_test = np.mean(vis_test)
 
     test_result = pd.DataFrame({
         "Fold": [fold],
         "VI": [vi_test],
     })
-    if not os.path.exists(curResultDir + "_test_result.csv"):
-        result.to_csv(curResultDir + "_test_result.csv", index=False)
+    if not os.path.exists(curResultDir + "test_result.csv"):
+        test_result.to_csv(curResultDir + "test_result.csv", index=False)
     else:
-        result.to_csv(curResultDir + "_test_result.csv", mode='a', header=False, index=False)
+        test_result.to_csv(curResultDir + "test_result.csv", mode='a', header=False, index=False)
 
+    print("---------------------------------------------------------")
+    print("-----------------------fold finished---------------------")
     print("fold: " + str(fold) + " VI: " + str(vi_test))
+    print("---------------------------------------------------------")  
