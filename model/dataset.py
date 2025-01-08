@@ -28,8 +28,8 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
         else:
             self.transform = v2.Compose([
                 v2.ToImage(),
-                v2.ToDtype(torch.float32, scale=True),
-                v2.RandomCrop(size=(512, 512)),
+                v2.ToDtype(torch.float32, scale=True)
+                # v2.RandomCrop(size=(512, 512)),
             ])
 
     def __len__(self):
