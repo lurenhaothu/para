@@ -1,7 +1,9 @@
 import torch
 
-# def BCELoss():
-#     return torch.nn.BCELoss()
+def BCELoss():
+    def loss(mask, pred):
+        return torch.mean(- mask * torch.log(pred + 1e-7) - (1 - mask) * torch.log(1 - pred + 1e-7))
+    return loss
 
 def HomeMadeBCE_withClassBalance(): #20570595.0 84287005.0
     def loss(mask, pred):
