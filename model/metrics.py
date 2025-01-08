@@ -9,7 +9,7 @@ from skimage import morphology
 def vi(pred: np.array, mask: np.array):
     mask_label = label(mask, background=1, connectivity=1)
     pred_label = label(pred, background=1, connectivity=1)
-    merger_error, split_error = metrics.variation_of_information(pred_label, mask_label)
+    merger_error, split_error = metrics.variation_of_information(pred_label, mask_label, ignore_labels=[0])
 
     return merger_error + split_error
 
@@ -107,7 +107,7 @@ def ari(in_pred: np.ndarray, in_mask: np.ndarray, bg_value = 1) -> float:
     
     label_pred, _ = label(pred, connectivity=1, background=bg_value, return_num=True)
     label_mask, _ = label(mask, connectivity=1, background=bg_value, return_num=True)    
-    adjust_RI = metrics.variation_of_information(label_pred, label_mask)
+    adjust_RI = metrics.variation_of_information(label_pred, label_mask, ignore_labels=[0])
     return adjust_RI
 
 def get_betti_own(x, is_show=False, filter_small_holes=False):  # binary_image  foreground 1， background 0
