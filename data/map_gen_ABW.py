@@ -64,8 +64,8 @@ def caculate_weight_map(maskAddress, saveAddress='', weight_cof = 30):
         adaptive_bck_dis_weight[min_row: max_row, min_col: max_col] = adaptive_bck_dis_weight[min_row: max_row, min_col: max_col] + get_bck_dis_weight(temp_dis) * bool_dis
 
     # get weight map for loss
-    adaptive_bck_dis_weight = adaptive_bck_dis_weight[:, :, np.newaxis]
-    adaptive_obj_dis_weight = adaptive_obj_dis_weight[:, :, np.newaxis]
+    adaptive_bck_dis_weight = np.expand_dims(adaptive_bck_dis_weight, axis=0)
+    adaptive_obj_dis_weight = np.expand_dims(adaptive_obj_dis_weight, axis=0)
 
     #fig, axes = plt.subplots(1, 3)
     #axes[0].imshow(maskAddress)
@@ -74,7 +74,7 @@ def caculate_weight_map(maskAddress, saveAddress='', weight_cof = 30):
     #plt.show()
     
 
-    adaptive_dis_weight = np.concatenate((adaptive_bck_dis_weight, adaptive_obj_dis_weight), axis=2)
+    adaptive_dis_weight = np.concatenate((adaptive_bck_dis_weight, adaptive_obj_dis_weight), axis=0)
 
     #np.save(os.path.join(saveAddress, "weight_map_loss.npy"), adaptive_dis_weight)
 
@@ -82,15 +82,15 @@ def caculate_weight_map(maskAddress, saveAddress='', weight_cof = 30):
     #print("adaptive_bck_dis_weight range ", np.max(adaptive_bck_dis_weight), " ", np.min(adaptive_bck_dis_weight))
 
     # get weight for last information
-    adaptive_bck_dis_weight = adaptive_bck_dis_weight[:,:,0]
-    bck_maxinum = np.max(adaptive_bck_dis_weight)
-    bck_mininum = np.min(adaptive_bck_dis_weight)
-    adaptive_bck_dis_weight_norm = (adaptive_bck_dis_weight - bck_mininum) / (bck_maxinum - bck_mininum)
-    adaptive_bck_dis_weight_norm = (1 - adaptive_bck_dis_weight_norm) * (-7) + 1
+    #adaptive_bck_dis_weight = adaptive_bck_dis_weight[:,:,0]
+    #bck_maxinum = np.max(adaptive_bck_dis_weight)
+    #bck_mininum = np.min(adaptive_bck_dis_weight)
+    #adaptive_bck_dis_weight_norm = (adaptive_bck_dis_weight - bck_mininum) / (bck_maxinum - bck_mininum)
+    #adaptive_bck_dis_weight_norm = (1 - adaptive_bck_dis_weight_norm) * (-7) + 1
 
     #np.save(os.path.join(saveAddress, "weight_map_last.npy"), adaptive_bck_dis_weight_norm)
 
-    return adaptive_dis_weight, adaptive_bck_dis_weight_norm
+    return adaptive_dis_weight #, adaptive_bck_dis_weight_norm
 
 
 class WeightMapLoss(nn.Module):
@@ -155,9 +155,11 @@ class WeightMapLoss(nn.Module):
         method：Select the type of loss function
         """
         mask = target
-        for i in range(iteration):
-            mask = sm.dilation(mask, sm.square(3))
+        #for i in range(iteration):
+        #    mask = sm.dilation(mask, sm.square(3))
         mask = target.float()
+        weight_maps = weight_maps.squeeze(1)
+        print(weight_maps.shape)
         if -1 < method <= 6:  # WCE
             weight_bck, weight_obj = self._calculate_maps(mask, weight_maps, method)
             logit = torch.softmax(input, dim=1)
@@ -196,7 +198,7 @@ if __name__ == "__main__":
 
     def save_ABW_map(index):
         mask = np.array(Image.open(mask_dir + str(index).zfill(3) + ".png"))
-        w_map, _ = caculate_weight_map(mask)
+        w_map = caculate_weight_map(mask)
         np.save(map_dir + str(index).zfill(3) + '.npy', w_map)
 
     with ThreadPoolExecutor() as executor:
