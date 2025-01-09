@@ -120,8 +120,8 @@ class WeightMapLoss(nn.Module):
                 weight_bck = (1 - mask) * self._weight_cof[0]
                 weight_obj = mask * weight_maps[:, 1, :, :]
             elif method == 4:  # 自适应对比晶界加权（bck也加权） Adaptive weighted loss described in our paper (bck is is also weighted)
-                temp_weight_bck = weight_maps[:, 0, :, :]
-                temp_weight_obj = weight_maps[:, 1, :, :]
+                temp_weight_bck = weight_maps[:, 0:1, :, :]
+                temp_weight_obj = weight_maps[:, 1:2, :, :]
 #                 print('WeightMapLoss mask ', mask.shape)
 #                 print('WeightMapLoss temp_weight_bck ', temp_weight_bck.shape)
                 weight_obj[temp_weight_obj >= temp_weight_bck] = temp_weight_obj[temp_weight_obj >= temp_weight_bck]
@@ -155,11 +155,12 @@ class WeightMapLoss(nn.Module):
         method：Select the type of loss function
         """
         mask = target
-        #for i in range(iteration):
-        #    mask = sm.dilation(mask, sm.square(3))
+
+        dilation_kernel = torch.ones((1,1,3,3))
+        for i in range(iteration):
+            mask = torch.clamp(torch.nn.functional.conv2d(mask, dilation_kernel, padding=1), 0., 1.)
         mask = target.float()
-        weight_maps = weight_maps.squeeze(1)
-        print(weight_maps.shape)
+        # print(weight_maps.shape, mask.shape)
         if -1 < method <= 6:  # WCE
             weight_bck, weight_obj = self._calculate_maps(mask, weight_maps, method)
             logit = torch.softmax(input, dim=1)
@@ -189,6 +190,13 @@ class WeightMapLoss(nn.Module):
 
 
 if __name__ == "__main__":
+    """
+    mask = torch.rand((3, 1, 128, 128))
+    pred = torch.rand((3, 2, 128, 128))
+    w_map = torch.rand((3, 2, 128, 128))
+    print(WeightMapLoss()(mask, pred, w_map))
+
+    """
     t = time.time()
 
     cwd = os.getcwd()
@@ -205,3 +213,4 @@ if __name__ == "__main__":
         futures = [executor.submit(save_ABW_map, j) for j in range(100)]
 
     print(time.time() - t)
+    
