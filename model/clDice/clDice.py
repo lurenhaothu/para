@@ -15,8 +15,9 @@ class soft_cldice(nn.Module):
         if self.exclude_background:
             y_true = y_true[:, 1:, :, :]
             y_pred = y_pred[:, 1:, :, :]
-        skel_pred = self.soft_skeletonize(y_pred)
-        skel_true = self.soft_skeletonize(y_true)
+        with torch.no_grad():
+            skel_pred = self.soft_skeletonize(y_pred)
+            skel_true = self.soft_skeletonize(y_true)
         tprec = (torch.sum(torch.multiply(skel_pred, y_true))+self.smooth)/(torch.sum(skel_pred)+self.smooth)    
         tsens = (torch.sum(torch.multiply(skel_true, y_pred))+self.smooth)/(torch.sum(skel_true)+self.smooth)    
         cl_dice = 1.- 2.0*(tprec*tsens)/(tprec+tsens)
