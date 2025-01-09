@@ -20,6 +20,9 @@ def get_dis_map(index, mask_label):
     item_map = (mask_label != index).astype(int)
     return index, distance_transform_edt(item_map)
 
+def get_first_2(j, chunk):
+    return j, np.sum(np.partition(chunk, 2, axis=0)[0:2, :, :], axis=0)
+
 if single:
     single_arr = np.zeros((100, 1024, 1024))
 
@@ -32,7 +35,7 @@ for i in range(100):
 
     t = time.time()
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor() as executor:
         futures = [executor.submit(get_dis_map, j, mask_label) for j in range(1, num)]
 
         for future in futures:
@@ -43,11 +46,25 @@ for i in range(100):
     
     t = time.time()
 
-    sorted_dis_map = np.sum(np.partition(dis_map * mask, 2, axis=0)[0:2, :, :], axis=0)
+    sum_dis_map = np.zeros((1024, 1024))
+
+    #sum_dis_map = np.sum(np.partition(dis_map * mask, 2, axis=0)[0:2, :, :], axis=0)
+    
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(get_first_2, j, dis_map[:, j:j+1, :]) for j in range(1, 1024)]
+
+        for future in futures:
+            j, chunk = future.result()
+            sum_dis_map[j:j+1, :] = chunk
+
 
     print('sort time: ' + str(time.time() - t))
 
-    weight_map = w0 * np.exp( - np.power(sorted_dis_map , 2) / 2 / sigma / sigma) * mask
+    weight_map = w0 * np.exp( - np.power(sum_dis_map , 2) / 2 / sigma / sigma) * mask
+
+    #plt.imshow(weight_map)
+    #plt.show()
+    #break
 
     np.save(map_dir + str(i).zfill(3) + ".npy", weight_map)
 
