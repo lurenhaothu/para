@@ -6,31 +6,32 @@ import torchvision.transforms.v2 as v2
 import matplotlib.pyplot as plt
 
 class SNEMI3DDataset(torch.utils.data.Dataset):
-    def __init__(self, indices, augmentation):
+    def __init__(self, indices: list[int], augmentation: bool, weight_map: bool=False):
         self.indices = indices
+        self.weight_map = weight_map
         cwd = os.getcwd()
         self.images_dir = cwd + "/data/images/"
         self.masks_dir = cwd + "/data/masks/"
+        self.maps_dir = cwd + "/data/maps/"
 
         mean = [0.5053152359607174]
         std = [0.16954360899089577]
 
         self.norm = v2.Normalize(mean=mean, std=std)
+
+        self.preprocess = v2.Compose([
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True), # scale=True: 0-255 to 0-1
+        ])
         
         if augmentation:
             self.transform = v2.Compose([
-                v2.ToImage(),
-                v2.ToDtype(torch.float32, scale=True), # scale=True: 0-255 to 0-1
                 v2.RandomCrop(size=(512, 512)),
                 v2.RandomHorizontalFlip(),
                 v2.RandomVerticalFlip()
             ])
         else:
-            self.transform = v2.Compose([
-                v2.ToImage(),
-                v2.ToDtype(torch.float32, scale=True)
-                # v2.RandomCrop(size=(512, 512)),
-            ])
+            self.transform = v2.Compose([])
 
     def __len__(self):
         return len(self.indices)
@@ -39,10 +40,18 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
         image = Image.open(self.images_dir + str(self.indices[idx]).zfill(3) + '.png')
         mask = Image.open(self.masks_dir + str(self.indices[idx]).zfill(3) + '.png')
 
-        image, mask = self.transform((image, mask))
-        image = self.norm(image)
-        
-        return image, mask
+        image = self.preprocess(image)
+        mask = self.preprocess(mask)
+
+        if self.weight_map:
+            map = np.load(self.maps_dir + str(self.indices[idx]).zfill(3) + '.npy')
+            image, mask, map = self.transform((image, mask, map))
+            image = self.norm(image)
+            return image, mask, map
+        else:
+            image, mask = self.transform((image, mask))
+            image = self.norm(image)
+            return image, mask, None
     
 # test
 if __name__ == "__main__":

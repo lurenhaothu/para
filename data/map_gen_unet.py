@@ -9,12 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 cwd = os.getcwd()
 mask_dir = cwd + "/data/masks/"
-map_dir = cwd + "/data/map/"
+map_dir = cwd + "/data/maps/"
 os.makedirs(map_dir, exist_ok=True)
 
 w0 = 10
 sigma = 5
-single = True
+single = False
 
 def get_dis_map(index, mask_label):
     item_map = (mask_label != index).astype(int)
@@ -65,8 +65,8 @@ for i in range(100):
     #plt.imshow(weight_map)
     #plt.show()
     #break
-
-    np.save(map_dir + str(i).zfill(3) + ".npy", weight_map)
+    if not single:
+        np.save(map_dir + str(i).zfill(3) + ".npy", weight_map)
 
     if single:
         single_arr[i,:,:] = weight_map
