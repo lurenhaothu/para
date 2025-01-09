@@ -124,6 +124,7 @@ class WeightMapLoss(nn.Module):
                 temp_weight_obj = weight_maps[:, 1:2, :, :]
 #                 print('WeightMapLoss mask ', mask.shape)
 #                 print('WeightMapLoss temp_weight_bck ', temp_weight_bck.shape)
+                # print(weight_obj.shape, temp_weight_obj.shape)
                 weight_obj[temp_weight_obj >= temp_weight_bck] = temp_weight_obj[temp_weight_obj >= temp_weight_bck]
                 weight_obj = mask * weight_obj
                 weight_bck[weight_obj <= temp_weight_bck] = temp_weight_bck[weight_obj <= temp_weight_bck]
@@ -156,16 +157,17 @@ class WeightMapLoss(nn.Module):
         """
         mask = target
 
-        dilation_kernel = torch.ones((1,1,3,3))
+        dilation_kernel = torch.ones((1,1,3,3)).cuda()
         for i in range(iteration):
             mask = torch.clamp(torch.nn.functional.conv2d(mask, dilation_kernel, padding=1), 0., 1.)
         mask = target.float()
+        weight_maps = weight_maps.squeeze(1)
         # print(weight_maps.shape, mask.shape)
         if -1 < method <= 6:  # WCE
             weight_bck, weight_obj = self._calculate_maps(mask, weight_maps, method)
-            logit = torch.softmax(input, dim=1)
-            logit = logit.clamp(self._eps, 1. - self._eps)
-            loss = -1 * weight_bck * torch.log(logit[:, 0, :, :]) - weight_obj * torch.log(logit[:, 1, :, :])
+            #logit = torch.softmax(input, dim=1)
+            #logit = logit.clamp(self._eps, 1. - self._eps)
+            loss = -1 * weight_bck * torch.log(1 - input) - weight_obj * torch.log(input)
             weight_sum = weight_bck + weight_obj
             return loss.sum() / weight_sum.sum()
         elif method >= 7:  # MSE
