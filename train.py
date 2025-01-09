@@ -15,7 +15,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-lossFunc = loss.BCE_withClassBalance
+lossFunc = loss.Unet_Weight_BCE
 
 batch_size = 10
 
@@ -53,7 +53,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
     df.to_csv(curResultDir + 'Fold_' + str(fold) + '_test.csv', index=False)
 
     train_dataset = SNEMI3DDataset(train_list, augmentation=True, weight_map=True)
-    val_dataset = SNEMI3DDataset(val_list, augmentation=False)
+    val_dataset = SNEMI3DDataset(val_list, augmentation=False, weight_map=True)
     test_dataset = SNEMI3DDataset(test_list, augmentation=False)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -78,14 +78,13 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
         t1 = time.time()
 
         unet.train()
-        for image, mask, map in train_dataloader:
+        for image, mask, w_map in train_dataloader:
             image = image.cuda()
             mask = mask.cuda()
-            if map != None:
-                map = map.cuda()
+            w_map = w_map.cuda()
             pred = torch.softmax(unet(image), 1)[:, 1:2, :, :]
-            # print(pred.shape, mask.shape)
-            loss = lossFunc(mask, pred, map)
+            # print(pred.shape, mask.shape, w_map.shape)
+            loss = lossFunc(mask, pred, w_map)
             print(loss)
 
             optimizer.zero_grad()
@@ -107,7 +106,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
         preds = []
         preds_bin = []
         vis = []
-        for index, (image, mask, _) in enumerate(val_dataloader):
+        for index, (image, mask, w_map) in enumerate(val_dataloader):
             unet.eval()
             with torch.no_grad():
                 pred = torch.softmax(unet(image.cuda()), 1)[:, 1:2, :, :]
@@ -127,7 +126,7 @@ for fold, (train_and_val_list, test_list) in enumerate(kf.split(fileList)):
                 axes[1][1].imshow(mask.squeeze().numpy() - (pred.cpu().squeeze().numpy() > 0.5).astype(int))
 
                 pred.requires_grad = True
-                l = lossFunc(mask.cuda(), pred)
+                l = lossFunc(mask.cuda(), pred, w_map.cuda())
                 grad = torch.autograd.grad(l, pred)
                 print(grad[0].shape)
                 axes[1][2].imshow(grad[0].cpu().squeeze().numpy())

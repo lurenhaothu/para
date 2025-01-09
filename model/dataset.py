@@ -31,7 +31,7 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
                 v2.RandomVerticalFlip()
             ])
         else:
-            self.transform = v2.Compose([])
+            self.transform = None
 
     def __len__(self):
         return len(self.indices)
@@ -44,14 +44,19 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
         mask = self.preprocess(mask)
 
         if self.weight_map:
-            map = np.load(self.maps_dir + str(self.indices[idx]).zfill(3) + '.npy')
-            image, mask, map = self.transform((image, mask, map))
+            w_map = np.load(self.maps_dir + str(self.indices[idx]).zfill(3) + '.npy')
+            w_map = torch.tensor(w_map).unsqueeze(0).to(torch.float32)
+            w_map = v2.functional.to_image(w_map)
+            if self.transform != None:
+                image, mask, w_map = self.transform(image, mask, w_map)
             image = self.norm(image)
-            return image, mask, map
+            # print(image.shape, mask.shape, w_map.shape)
+            return image, mask, w_map
         else:
-            image, mask = self.transform((image, mask))
+            if self.transform != None:
+                image, mask = self.transform((image, mask))
             image = self.norm(image)
-            return image, mask, None
+            return image, mask, torch.empty(0)
     
 # test
 if __name__ == "__main__":

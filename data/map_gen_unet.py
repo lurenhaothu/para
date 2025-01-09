@@ -27,13 +27,13 @@ if single:
     single_arr = np.zeros((100, 1024, 1024))
 
 for i in range(100):
+    t = time.time()
+
     mask = np.array(Image.open(mask_dir + str(i).zfill(3) + ".png"))
     mask = (mask == 255).astype(int)
     mask_label, num = label(mask, background=1, connectivity=1, return_num=True)
 
     dis_map = np.zeros((num - 1, 1024, 1024))
-
-    t = time.time()
 
     with ThreadPoolExecutor() as executor:
         futures = [executor.submit(get_dis_map, j, mask_label) for j in range(1, num)]
@@ -41,10 +41,6 @@ for i in range(100):
         for future in futures:
             j, dis_map_j = future.result()
             dis_map[j - 1,:,:] = dis_map_j
-
-    print(str(j) + ' time: ' + str(time.time() - t))
-    
-    t = time.time()
 
     sum_dis_map = np.zeros((1024, 1024))
 
@@ -57,9 +53,6 @@ for i in range(100):
             j, chunk = future.result()
             sum_dis_map[j:j+1, :] = chunk
 
-
-    print('sort time: ' + str(time.time() - t))
-
     weight_map = w0 * np.exp( - np.power(sum_dis_map , 2) / 2 / sigma / sigma) * mask
 
     #plt.imshow(weight_map)
@@ -70,6 +63,8 @@ for i in range(100):
 
     if single:
         single_arr[i,:,:] = weight_map
+
+    print('finished ' + str(i) + ' time: ' + str(time.time() - t))
 
 if single:
     np.save(map_dir + "maps.npy", single_arr)
