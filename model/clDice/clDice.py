@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from soft_skeleton import SoftSkeletonize
+from model.clDice.soft_skeleton import SoftSkeletonize
 
 class soft_cldice(nn.Module):
     def __init__(self, iter_=3, smooth = 1., exclude_background=False):
@@ -48,7 +48,7 @@ class soft_dice_cldice(nn.Module):
         self.soft_skeletonize = SoftSkeletonize(num_iter=10)
         self.exclude_background = exclude_background
 
-    def forward(self, y_true, y_pred):
+    def forward(self, y_true, y_pred, _):
         if self.exclude_background:
             y_true = y_true[:, 1:, :, :]
             y_pred = y_pred[:, 1:, :, :]
