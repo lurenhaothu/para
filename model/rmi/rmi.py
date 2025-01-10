@@ -66,7 +66,7 @@ class RMILoss(nn.Module):
 		# ignore class
 		self.ignore_index = 255
 
-	def forward(self, logits_4D, labels_4D):
+	def forward(self, labels_4D, logits_4D):
 		loss = self.forward_sigmoid(logits_4D, labels_4D)
 		#loss = self.forward_softmax_sigmoid(logits_4D, labels_4D)
 		return loss
@@ -109,17 +109,19 @@ class RMILoss(nn.Module):
 		"""
 		Using the sigmiod operation both.
 		Args:
-			logits_4D 	:	[N, C, H, W], dtype=float32
-			labels_4D 	:	[N, H, W], dtype=long
+			logits_4D 	:	[N, C, H, W], dtype=float32       RL: now it is [B, 1, H, W]
+			labels_4D 	:	[N, H, W], dtype=long             RL: now it is [B, 1, H, W]
 		"""
 		# label mask -- [N, H, W, 1]
 		label_mask_3D = labels_4D < self.num_classes
+
+		logits_4D = torch.cat((1 - logits_4D, logits_4D), dim=1)
 
 		# valid label
 		valid_onehot_labels_4D = F.one_hot(labels_4D.long() * label_mask_3D.long(), num_classes=self.num_classes).float()
 		label_mask_3D = label_mask_3D.float()
 		label_mask_flat = label_mask_3D.view([-1, ])
-		valid_onehot_labels_4D = valid_onehot_labels_4D * label_mask_3D.unsqueeze(dim=3)
+		valid_onehot_labels_4D = valid_onehot_labels_4D * label_mask_3D.unsqueeze(dim=4) # [B, 1, H, W, C]
 		valid_onehot_labels_4D.requires_grad_(False)
 
 		# PART I -- calculate the sigmoid binary cross entropy loss
@@ -128,7 +130,7 @@ class RMILoss(nn.Module):
 
 		# binary loss, multiplied by the not_ignore_mask
 		valid_pixels = torch.sum(label_mask_flat)
-		binary_loss = F.binary_cross_entropy_with_logits(logits_flat,
+		binary_loss = F.binary_cross_entropy(logits_flat,
 															target=valid_onehot_label_flat,
 															weight=label_mask_flat.unsqueeze(dim=1),
 															reduction='sum')
@@ -136,8 +138,8 @@ class RMILoss(nn.Module):
 
 		# PART II -- get rmi loss
 		# onehot_labels_4D -- [N, C, H, W]
-		probs_4D = logits_4D.sigmoid() * label_mask_3D.unsqueeze(dim=1) + _CLIP_MIN
-		valid_onehot_labels_4D = valid_onehot_labels_4D.permute(0, 3, 1, 2).requires_grad_(False)
+		probs_4D = logits_4D * label_mask_3D + _CLIP_MIN
+		valid_onehot_labels_4D = valid_onehot_labels_4D.squeeze(1).permute(0, 3, 1, 2).requires_grad_(False)
 
 		# get region mutual information
 		rmi_loss = self.rmi_lower_bound(valid_onehot_labels_4D, probs_4D)
