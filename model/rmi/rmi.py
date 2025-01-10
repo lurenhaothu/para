@@ -14,8 +14,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# from model.rmi import rmi_utils
-import rmi_utils
+from model.rmi import rmi_utils
+# import rmi_utils
 
 
 _euler_num = 2.718281828				# 	euler number

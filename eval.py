@@ -16,6 +16,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 expriment_name = "SNEMI3D_DiceLoss_btchSize_102025-01-08 21:31:22"
 
+post_process = True
+
 cwd = os.getcwd()
 curResultDir = cwd + "/results/" + expriment_name + "/"
 
@@ -54,6 +56,11 @@ for fold in range(3):
             masks_test.append(mask.squeeze().numpy())
             preds_test.append(pred.cpu().squeeze().numpy())
             preds_bin_test.append((preds_test[-1] > 0.5).astype(int))
+
+    if post_process:
+        for i in range(len(preds_bin_test)):
+            preds_bin_test[i] = metrics.post_process_output(preds_bin_test[i])
+            masks_test[i] = metrics.post_process_label(masks_test[i])
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         vis_test = list(executor.map(metrics.vi, preds_bin_test, masks_test))
