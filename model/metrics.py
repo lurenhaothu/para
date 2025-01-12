@@ -4,6 +4,7 @@ import numpy as np
 import time
 import cv2
 from skimage import morphology
+import math
 
 
 def vi(pred: np.array, mask: np.array):
@@ -11,7 +12,10 @@ def vi(pred: np.array, mask: np.array):
     pred_label = label(pred, background=1, connectivity=1)
     merger_error, split_error = metrics.variation_of_information(pred_label, mask_label, ignore_labels=[0])
 
-    return merger_error + split_error
+    vi = merger_error + split_error
+    if math.isnan(vi):
+        return 10
+    return vi
 
 def miou(pred: np.ndarray, mask: np.ndarray, n_cl=2) -> float:
     """

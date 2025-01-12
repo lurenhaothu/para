@@ -2,11 +2,14 @@ import torch
 import torchvision
 from model.MI.steerable import SteerablePyramid
 #from steerable import SteerablePyramid
+import model.loss as loss
 
 from PIL import Image
 import matplotlib.pyplot as plt
 
 _POS_ALPHA = 5e-4
+
+# 1-12-25 tested: 0.0001 SPMI + 0.01 BCE
 
 class SPMILoss(torch.nn.Module):
     def __init__(self, imageSize, spN = 4, spK=6):
@@ -17,9 +20,15 @@ class SPMILoss(torch.nn.Module):
         sp_mask = self.sp(mask)
         sp_pred = self.sp(pred)
         mi_output = []
-        for i in range(self.sp.N):
+        for i in range(self.sp.N + 1):
             mi_output.append(self.mi(sp_mask[i + 1].squeeze(1), sp_pred[i + 1].squeeze(1)))
-        return torch.mean(mi_output[0]) + torch.mean(mi_output[1]) + torch.mean(mi_output[2]) + torch.mean(mi_output[2])
+        # print(torch.mean(mi_output[0]), torch.mean(mi_output[1]), torch.mean(mi_output[2]), torch.mean(mi_output[3]))
+        return torch.mean(mi_output[0]) \
+            + torch.mean(mi_output[1]) \
+            + torch.mean(mi_output[2]) \
+            + torch.mean(mi_output[3])
+        #    + torch.mean(mi_output[4])
+        #    + loss.BCELoss(sp_mask[-1].squeeze(1), sp_pred[-1].squeeze(1), torch.empty(0))
 
     def mi(self, mask, pred):
         # print(mask.shape)

@@ -66,7 +66,7 @@ class RMILoss(nn.Module):
 		# ignore class
 		self.ignore_index = 255
 
-	def forward(self, labels_4D, logits_4D):
+	def forward(self, labels_4D, logits_4D, _):
 		loss = self.forward_sigmoid(logits_4D, labels_4D)
 		#loss = self.forward_softmax_sigmoid(logits_4D, labels_4D)
 		return loss
