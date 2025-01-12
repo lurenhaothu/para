@@ -10,7 +10,7 @@ _POS_ALPHA = 5e-4
 
 class SPMILoss(torch.nn.Module):
     def __init__(self, imageSize, spN = 4, spK=6):
-        super(MILoss, self).__init__()
+        super(SPMILoss, self).__init__()
         self.sp = SteerablePyramid(imgSize=imageSize, N=spN, K=spK)
 
     def forward(self, mask, pred, _):
@@ -19,10 +19,10 @@ class SPMILoss(torch.nn.Module):
         mi_output = []
         for i in range(self.sp.N):
             mi_output.append(self.mi(sp_mask[i + 1].squeeze(1), sp_pred[i + 1].squeeze(1)))
-        return torch.sum(mi_output)
+        return torch.mean(mi_output[0]) + torch.mean(mi_output[1]) + torch.mean(mi_output[2]) + torch.mean(mi_output[2])
 
     def mi(self, mask, pred):
-        print(mask.shape)
+        # print(mask.shape)
         B, C, H, W = mask.shape
         mask_flat = mask.view(B, C, H * W).type(torch.cuda.DoubleTensor)
         mask_mean = torch.mean(mask_flat, dim=2)
@@ -36,7 +36,7 @@ class SPMILoss(torch.nn.Module):
         var_pred = torch.matmul(pred_centered, torch.permute(pred_centered, (0, 2, 1)))
         cov_mask_pred = torch.matmul(mask_centered, torch.permute(pred_centered, (0, 2, 1)))
 
-        print(var_mask, var_pred, cov_mask_pred)
+        # print(var_mask, var_pred, cov_mask_pred)
 
         diag_matrix = torch.eye(C).unsqueeze(0)
         inv_cov_pred = torch.inverse(var_pred + diag_matrix.type_as(var_pred) * _POS_ALPHA)
