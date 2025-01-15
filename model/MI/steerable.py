@@ -101,6 +101,9 @@ class SteerablePyramid(nn.Module):
                     output[n] = torch.cat( (o1, o2), 1 ) 
                 else:
                     output[n] = output[n].unsqueeze(1)
+        
+        for i in range(len(output)):
+            output[i] = output[i].squeeze(1)
 
         return output
 

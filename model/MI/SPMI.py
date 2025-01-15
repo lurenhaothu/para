@@ -8,19 +8,24 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import math
 
+from model.MI.SPMap import SPMap
+
 _POS_ALPHA = 5e-4
 
 # 1-12-25 tested: 0.0001 SPMI + 0.01 BCE
 
 class SPMILoss(torch.nn.Module):
-    def __init__(self, imageSize, spN = 4, spK=4, beta=0.25, lamb=0.5, mag=1, ffl: bool=False):
+    def __init__(self, imageSize, spN = 4, spK=4, beta=0.25, lamb=0.5, mag=1, map_method=2, map_weight=1, ffl: bool=False):
         super(SPMILoss, self).__init__()
         self.sp = SteerablePyramid(imgSize=imageSize, N=spN, K=spK)
         self.beta = beta
         self.ffl = ffl
         self.lamb = lamb
         self.mag = mag
-        self.BCEW = loss.BCE_withClassBalance()
+        self.map_method = map_method
+        self.sp_map = SPMap()
+        self.map_weight = map_weight
+        self.BCEW = loss.Weight_Map_BCE()
 
     def forward(self, mask, pred, _, epoch=None):
         if epoch == 0:
@@ -30,25 +35,33 @@ class SPMILoss(torch.nn.Module):
         mi_output = []
         for i in range(self.sp.N):
             if not self.ffl:
-                mi_output.append(torch.mean(self.mi(sp_mask[i + 1].squeeze(1), sp_pred[i + 1].squeeze(1))))
+                mi_output.append(torch.mean(self.mi(sp_mask[i + 1], sp_pred[i + 1])))
             else:
-                mi_output.append(torch.mean(torch.log(torch.norm(sp_mask[i + 1].squeeze(1) - sp_pred[i + 1], dim=1))))
-        # print(torch.mean(mi_output[0]), torch.mean(mi_output[1]), torch.mean(mi_output[2]), torch.mean(mi_output[3]))
-        loss = self.BCEW(mask, pred, _) * self.lamb
+                mi_output.append(torch.mean(torch.log(torch.norm(sp_mask[i + 1] - sp_pred[i + 1], dim=1))))
+        
+        if self.map_method == 2:
+            map = self.sp_map(sp_mask) + self.sp_map(sp_pred)
+            map = map * self.map_weight
+        elif self.map_method == 1:
+            map = self.sp_map(sp_mask) * self.map_weight
+        else:
+            map = None
+        
+        loss = self.BCEW(mask, pred, map) * self.lamb
         for i in range(self.sp.N):
             loss += math.pow(self.beta, self.sp.N - i - 1) * mi_output[i] * self.mag
         return loss
 
-    def mi(self, mask, pred):
+    def mi(self, mask, pred, w_map):
         # print(mask.shape)
         B, C, H, W = mask.shape
         mask_flat = mask.view(B, C, H * W).type(torch.cuda.DoubleTensor)
-        mask_mean = torch.mean(mask_flat, dim=2)
-        mask_centered = mask_flat - mask_mean.unsqueeze(-1)
+        mask_mean = torch.mean(mask_flat, dim=2, keepdim=True)
+        mask_centered = mask_flat - mask_mean
 
         pred_flat = pred.view(B, C, H * W).type(torch.cuda.DoubleTensor)
-        pred_mean = torch.mean(pred_flat, dim=2)
-        pred_centered = pred_flat - pred_mean.unsqueeze(-1)
+        pred_mean = torch.mean(pred_flat, dim=2, keepdim=True)
+        pred_centered = pred_flat - pred_mean
 
         var_mask = torch.matmul(mask_centered, torch.permute(mask_centered, (0, 2, 1)))
         var_pred = torch.matmul(pred_centered, torch.permute(pred_centered, (0, 2, 1)))
