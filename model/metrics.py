@@ -5,6 +5,7 @@ import time
 import cv2
 from skimage import morphology
 import math
+import matplotlib.pyplot as plt
 
 
 def vi(pred: np.array, mask: np.array):
@@ -34,7 +35,7 @@ def miou(pred: np.ndarray, mask: np.ndarray, n_cl=2) -> float:
         union = np.count_nonzero(mask == i_cl) + np.count_nonzero(pred == i_cl) - intersection
         iou += intersection / union
     miou_score = iou / n_cl
-    return miou_score
+    return -miou_score
 
 def mdice(pred: np.ndarray, mask: np.ndarray, n_cl=2) -> float:
     """
@@ -140,7 +141,7 @@ def compute_bettis_own(pred, label, filter_small_holes=False):
 
     betti0_error = abs(label_betti0-pred_betti0)
     betti1_error = abs(label_betti1-pred_betti1)
-    return betti0_error+betti1_error, betti0_error, betti1_error
+    return betti0_error+betti1_error # , betti0_error, betti1_error
 
 # Post processing
 def prun(image, kernel_size):

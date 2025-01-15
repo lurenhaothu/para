@@ -12,23 +12,28 @@ _POS_ALPHA = 5e-4
 # 1-12-25 tested: 0.0001 SPMI + 0.01 BCE
 
 class SPMILoss(torch.nn.Module):
-    def __init__(self, imageSize, spN = 4, spK=6):
+    def __init__(self, imageSize, spN = 4, spK=4, beta=0.25, lamb=0.5, ffl: bool=False):
         super(SPMILoss, self).__init__()
         self.sp = SteerablePyramid(imgSize=imageSize, N=spN, K=spK)
+        self.beta = beta
+        self.ffl = ffl
+        self.lamb = lamb
+        self.BCEW = loss.BCE_withClassBalance()
 
     def forward(self, mask, pred, _):
         sp_mask = self.sp(mask)
         sp_pred = self.sp(pred)
         mi_output = []
-        for i in range(self.sp.N + 1):
-            mi_output.append(self.mi(sp_mask[i + 1].squeeze(1), sp_pred[i + 1].squeeze(1)))
+        for i in range(self.sp.N):
+            if not self.ffl:
+                mi_output.append(self.mi(sp_mask[i + 1].squeeze(1), sp_pred[i + 1].squeeze(1)))
+            else:
+                mi_output.append(torch.mean(torch.log(torch.norm(sp_mask[i + 1].squeeze(1) - sp_pred[i + 1], dim=1))))
         # print(torch.mean(mi_output[0]), torch.mean(mi_output[1]), torch.mean(mi_output[2]), torch.mean(mi_output[3]))
-        return torch.mean(mi_output[0]) \
-            + torch.mean(mi_output[1]) \
-            + torch.mean(mi_output[2]) \
-            + torch.mean(mi_output[3])
-        #    + torch.mean(mi_output[4])
-        #    + loss.BCELoss(sp_mask[-1].squeeze(1), sp_pred[-1].squeeze(1), torch.empty(0))
+        loss = self.BCEW(mask, pred) * self.lamb
+        for i in range(self.sp.N):
+            loss += torch.pow(self.beta, self.sp.N - i - 1) * mi_output[i]
+        return loss
 
     def mi(self, mask, pred):
         # print(mask.shape)
