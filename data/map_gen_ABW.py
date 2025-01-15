@@ -149,7 +149,7 @@ class WeightMapLoss(nn.Module):
             weight_map[weight_map < 1] = 1
             return weight_map
     
-    def forward(self, target, input, weight_maps, iteration=2, method=4):
+    def forward(self, target, input, weight_maps, epoch=None, iteration=2, method=4):
         """
         target: The target map, LongTensor, unique(target) = [0 1]
         weight_maps: The weights for two channels，weight_maps = [weight_bck_map, weight_obj_map]

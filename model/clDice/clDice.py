@@ -48,7 +48,7 @@ class soft_dice_cldice(nn.Module):
         self.soft_skeletonize = SoftSkeletonize(num_iter=10)
         self.exclude_background = exclude_background
 
-    def forward(self, y_true, y_pred, _):
+    def forward(self, y_true, y_pred, _, epoch=None):
         if self.exclude_background:
             y_true = y_true[:, 1:, :, :]
             y_pred = y_pred[:, 1:, :, :]
