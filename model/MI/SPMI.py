@@ -13,12 +13,13 @@ _POS_ALPHA = 5e-4
 # 1-12-25 tested: 0.0001 SPMI + 0.01 BCE
 
 class SPMILoss(torch.nn.Module):
-    def __init__(self, imageSize, spN = 4, spK=4, beta=0.25, lamb=0.5, ffl: bool=False):
+    def __init__(self, imageSize, spN = 4, spK=4, beta=0.25, lamb=0.5, mag=1, ffl: bool=False):
         super(SPMILoss, self).__init__()
         self.sp = SteerablePyramid(imgSize=imageSize, N=spN, K=spK)
         self.beta = beta
         self.ffl = ffl
         self.lamb = lamb
+        self.mag = mag
         self.BCEW = loss.BCE_withClassBalance()
 
     def forward(self, mask, pred, _):
@@ -33,7 +34,7 @@ class SPMILoss(torch.nn.Module):
         # print(torch.mean(mi_output[0]), torch.mean(mi_output[1]), torch.mean(mi_output[2]), torch.mean(mi_output[3]))
         loss = self.BCEW(mask, pred, _) * self.lamb
         for i in range(self.sp.N):
-            loss += math.pow(self.beta, self.sp.N - i - 1) * mi_output[i]
+            loss += math.pow(self.beta, self.sp.N - i - 1) * mi_output[i] * self.mag
         return loss
 
     def mi(self, mask, pred):
