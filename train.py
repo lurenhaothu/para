@@ -21,26 +21,38 @@ from model.MI.SPMI import SPMILoss
 from plot_result import plot_result
 
 #lossFunc = RMILoss(num_classes=2, loss_weight_lambda=0.5, rmi_pool_size=3, rmi_pool_stride=3)
-lossFuncs = [(SPMILoss(imageSize=512, spN = 4, spK=4, beta=0.25, lamb=0.5, ffl=False)), SPMILoss(imageSize=1024, spN = 4, spK=4, beta=0.25, lamb=0.5, ffl=False), 
-             (loss.BCE_withClassBalance(), loss.BCE_withClassBalance()),
-             (loss.DiceLoss(), loss.DiceLoss()),
-             (soft_dice_cldice(), soft_dice_cldice()),
-             (RMILoss(num_classes=2), RMILoss(num_classes=2)),
+#lossFuncs = [(SPMILoss(imageSize=512, spN = 4, spK=4, beta=0.25, lamb=0.5, ffl=False), SPMILoss(imageSize=1024, spN = 4, spK=4, beta=0.25, lamb=0.5, ffl=False)), 
+#             (loss.BCE_withClassBalance(), loss.BCE_withClassBalance()),
+#             (loss.DiceLoss(), loss.DiceLoss()),
+#             (soft_dice_cldice(), soft_dice_cldice()),
+#             (RMILoss(num_classes=2), RMILoss(num_classes=2)),
+#             ]
+
+lossFuncs = [(SPMILoss(imageSize=512, spN = 4, spK=4, beta=0.25, lamb=0.1, mag=1, ffl=False), 
+              SPMILoss(imageSize=1024, spN = 4, spK=4, beta=0.25, lamb=0.1, mag=1, ffl=False), "b_0.25_l_0.1_m_1"), 
+             (SPMILoss(imageSize=512, spN = 4, spK=4, beta=0.25, lamb=0.3, mag=1, ffl=False), 
+              SPMILoss(imageSize=1024, spN = 4, spK=4, beta=0.25, lamb=0.3, mag=1, ffl=False), "b_0.25_l_0.3_m_1"), 
+             (SPMILoss(imageSize=512, spN = 4, spK=4, beta=0.25, lamb=0.5, mag=1, ffl=False), 
+              SPMILoss(imageSize=1024, spN = 4, spK=4, beta=0.25, lamb=0.5, mag=1, ffl=False), "b_0.25_l_0.5_m_1"), 
+             (SPMILoss(imageSize=512, spN = 4, spK=4, beta=0.25, lamb=0.7, mag=1, ffl=False), 
+              SPMILoss(imageSize=1024, spN = 4, spK=4, beta=0.25, lamb=0.7, mag=1, ffl=False), "b_0.25_l_0.7_m_1"), 
+             (SPMILoss(imageSize=512, spN = 4, spK=4, beta=0.25, lamb=0.9, mag=1, ffl=False), 
+              SPMILoss(imageSize=1024, spN = 4, spK=4, beta=0.25, lamb=0.9, mag=1, ffl=False), "b_0.25_l_0.9_m_1"), 
              ]
 
-def experiment(lossFunc, lossFunc_val):
+def experiment(lossFunc, lossFunc_val, note=''):
 
     val_metric = metrics.miou
 
-    test_metrics = [metrics.miou, metrics.vi, metrics.mdice, metrics.map_2018kdsb, metrics.ari, metrics.compute_bettis_own]
+    test_metrics = [metrics.miou, metrics.vi, metrics.mdice, metrics.ari] #,metrics.map_2018kdsb,  metrics.compute_bettis_own]
 
     batch_size = 10
 
-    epoch_num = 6
+    epoch_num = 50
 
     # 100 0.5053152359607173 0.19049978520827424 20570595.0 84287005.0
 
-    expriment_name = "SNEMI3D_" + lossFunc.__class__.__name__ + "_" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    expriment_name = "SNEMI3D_" + lossFunc.__class__.__name__ + "_" + note + "_" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     #expriment_name = "SNEMI3D_" + "SP_DIS_ALL" + "_val_" + val_name + "_btchSize_" + str(batch_size) + "_" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
     cwd = os.getcwd()
@@ -100,19 +112,21 @@ def experiment(lossFunc, lossFunc_val):
         curmin_vi = None
 
         for epoch in range(epoch_num):
-            print("epoch: ", epoch)
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            print("epoch: " + str(epoch))
 
             t1 = time.time()
 
             unet.train()
-            for image, mask, w_map in train_dataloader:
+            for i, (image, mask, w_map) in enumerate(train_dataloader):
                 image = image.cuda()
                 mask = mask.cuda()
                 w_map = w_map.cuda()
                 pred = torch.softmax(unet(image), 1)[:, 1:2, :, :]
                 # print(pred.shape, mask.shape, w_map.shape)
-                loss = lossFunc(mask, pred, w_map)
-                print(loss)
+                loss = lossFunc(mask, pred, w_map, epoch)
+                if i == 0:
+                  print(loss)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -144,7 +158,7 @@ def experiment(lossFunc, lossFunc_val):
 
                 # TODO: calculate loss grad on pixels
 
-                if epoch % 5 == 0 and index == 0:
+                if epoch % 10 == 9 and index == 0:
                     plot_figures = []
                     plot_figures.append(image.squeeze().numpy())
                     plot_figures.append(mask.squeeze().numpy())
@@ -158,7 +172,8 @@ def experiment(lossFunc, lossFunc_val):
                     grad = torch.autograd.grad(l, pred)
                     plot_figures.append(grad[0].cpu().squeeze().numpy())
 
-                    plot_result(plot_figures, curResultDir + "fold_" + str(fold) + "_epoch_" + str(epoch) + "_val_sample.png")
+                    fig_path = curResultDir + "fold_" + str(fold) + "_epoch_" + str(epoch) + "_val_sample.png"
+                    plot_result(plot_figures, fig_path, size=1024)
 
 
             with ThreadPoolExecutor(max_workers=10) as executor:
@@ -206,25 +221,26 @@ def experiment(lossFunc, lossFunc_val):
 
         for test_metric in test_metrics:
             with ThreadPoolExecutor(max_workers=10) as executor:
-                test_result = list(executor.map(val_metric, preds_bin_test, masks_test))
-            test_results.append(test_metric.__name__, np.mean(test_result))
+                test_result = list(executor.map(test_metric, preds_bin_test, masks_test))
+            test_results.append((test_metric.__name__, np.mean(test_result)))
 
         test_result_pd = {"Fold": [fold]}
         for metric_name, value in test_results:
-            test_result_pd[metric_name] = [test_results]
+            test_result_pd[metric_name] = [value]
 
         test_result_pd = pd.DataFrame(test_result_pd)
 
         if not os.path.exists(curResultDir + "_test_result.csv"):
-            test_result.to_csv(curResultDir + "_test_result.csv", index=False)
+            test_result_pd.to_csv(curResultDir + "_test_result.csv", index=False)
         else:
-            test_result.to_csv(curResultDir + "_test_result.csv", mode='a', header=False, index=False)
+            test_result_pd.to_csv(curResultDir + "_test_result.csv", mode='a', header=False, index=False)
 
         print("---------------------------------------------------------")
+        print(expriment_name)
         print("---------------------fold " + str(fold) + " finished---------------------")
         for metric_name, value in test_results:
             print(metric_name + ": " + str(value))
         print("---------------------------------------------------------")
 
-for lossFunc, lossFunc_val in lossFuncs:
-    experiment(lossFunc, lossFunc_val)
+for lossFunc, lossFunc_val, note in lossFuncs:
+    experiment(lossFunc, lossFunc_val, note)

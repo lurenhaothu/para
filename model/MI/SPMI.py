@@ -22,7 +22,9 @@ class SPMILoss(torch.nn.Module):
         self.mag = mag
         self.BCEW = loss.BCE_withClassBalance()
 
-    def forward(self, mask, pred, _):
+    def forward(self, mask, pred, _, epoch=None):
+        if epoch == 0:
+            return self.BCEW(mask, pred, _)
         sp_mask = self.sp(mask)
         sp_pred = self.sp(pred)
         mi_output = []
