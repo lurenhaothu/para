@@ -6,6 +6,7 @@ import model.loss as loss
 
 from PIL import Image
 import matplotlib.pyplot as plt
+import math
 
 _POS_ALPHA = 5e-4
 
@@ -26,13 +27,13 @@ class SPMILoss(torch.nn.Module):
         mi_output = []
         for i in range(self.sp.N):
             if not self.ffl:
-                mi_output.append(self.mi(sp_mask[i + 1].squeeze(1), sp_pred[i + 1].squeeze(1)))
+                mi_output.append(torch.mean(self.mi(sp_mask[i + 1].squeeze(1), sp_pred[i + 1].squeeze(1))))
             else:
                 mi_output.append(torch.mean(torch.log(torch.norm(sp_mask[i + 1].squeeze(1) - sp_pred[i + 1], dim=1))))
         # print(torch.mean(mi_output[0]), torch.mean(mi_output[1]), torch.mean(mi_output[2]), torch.mean(mi_output[3]))
-        loss = self.BCEW(mask, pred) * self.lamb
+        loss = self.BCEW(mask, pred, _) * self.lamb
         for i in range(self.sp.N):
-            loss += torch.pow(self.beta, self.sp.N - i - 1) * mi_output[i]
+            loss += math.pow(self.beta, self.sp.N - i - 1) * mi_output[i]
         return loss
 
     def mi(self, mask, pred):

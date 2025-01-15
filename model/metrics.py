@@ -6,6 +6,7 @@ import cv2
 from skimage import morphology
 import math
 import matplotlib.pyplot as plt
+from sklearn.metrics.cluster import adjusted_rand_score
 
 
 def vi(pred: np.array, mask: np.array):
@@ -112,7 +113,9 @@ def ari(in_pred: np.ndarray, in_mask: np.ndarray, bg_value = 1) -> float:
     
     label_pred, _ = label(pred, connectivity=1, background=bg_value, return_num=True)
     label_mask, _ = label(mask, connectivity=1, background=bg_value, return_num=True)    
-    adjust_RI = metrics.variation_of_information(label_pred, label_mask, ignore_labels=[0])
+    #adjust_RI = ev.adj_rand_index(label_pred, label_mask)
+    # already imported
+    adjust_RI = adjusted_rand_score(label_pred.flatten(), label_mask.flatten())
     return adjust_RI
 
 def get_betti_own(x, is_show=False, filter_small_holes=False):  # binary_image  foreground 1， background 0
