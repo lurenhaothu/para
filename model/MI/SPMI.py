@@ -29,7 +29,7 @@ class SPMILoss(torch.nn.Module):
 
     def forward(self, mask, pred, _, epoch=None):
         if epoch == 0:
-            return self.BCEW(mask, pred, _)
+            return self.BCEW(mask, pred, None)
         sp_mask = self.sp(mask)
         sp_pred = self.sp(pred)
         mi_output = []
@@ -38,21 +38,20 @@ class SPMILoss(torch.nn.Module):
                 mi_output.append(torch.mean(self.mi(sp_mask[i + 1], sp_pred[i + 1])))
             else:
                 mi_output.append(torch.mean(torch.log(torch.norm(sp_mask[i + 1] - sp_pred[i + 1], dim=1))))
-        
-        if self.map_method == 2:
-            map = self.sp_map(sp_mask) + self.sp_map(sp_pred)
-            map = map * self.map_weight
-        elif self.map_method == 1:
-            map = self.sp_map(sp_mask) * self.map_weight
-        else:
-            map = None
-        
-        loss = self.BCEW(mask, pred, map) * self.lamb
-        for i in range(self.sp.N):
-            loss += math.pow(self.beta, self.sp.N - i - 1) * mi_output[i] * self.mag
+        with torch.no_grad():
+            if self.map_method == 2:
+                w_map = self.sp_map(sp_mask) + self.sp_map(sp_pred)
+                w_map = w_map * self.map_weight
+            elif self.map_method == 1:
+                w_map = self.sp_map(sp_mask) * self.map_weight
+            else:
+                w_map = None
+        loss = self.BCEW(mask, pred, w_map) * self.lamb
+        #for i in range(self.sp.N):
+        #    loss += math.pow(self.beta, self.sp.N - i - 1) * mi_output[i] * self.mag
         return loss
 
-    def mi(self, mask, pred, w_map):
+    def mi(self, mask, pred):
         # print(mask.shape)
         B, C, H, W = mask.shape
         mask_flat = mask.view(B, C, H * W).type(torch.cuda.DoubleTensor)
