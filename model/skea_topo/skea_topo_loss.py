@@ -197,7 +197,7 @@ class Skea_topo_loss(nn.Module):
         epoch: current epoch
         d_iter: dilation iters
         """
-
+        weight_maps = weight_maps.squeeze(1)
         mask = target.float()
         # logit = torch.softmax(pred, dim=1)
         logit = torch.cat((1 - pred, pred), dim=1) # single channel
