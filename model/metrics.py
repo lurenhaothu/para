@@ -12,7 +12,8 @@ from sklearn.metrics.cluster import adjusted_rand_score
 def vi(pred: np.array, mask: np.array):
     mask_label = label(mask, background=1, connectivity=1)
     pred_label = label(pred, background=1, connectivity=1)
-    merger_error, split_error = metrics.variation_of_information(pred_label, mask_label, ignore_labels=[0])
+    merger_error, split_error = metrics.variation_of_information(mask_label, pred_label, ignore_labels=[0])
+    # merger_error, split_error = metrics.variation_of_information(pred_label, mask_label, ignore_labels=[0])
 
     vi = merger_error + split_error
     if math.isnan(vi):
