@@ -43,6 +43,13 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
         image = self.preprocess(image)
         mask = self.preprocess(mask)
 
+        with torch.no_grad():
+            class_weight = torch.zeros((2, 1))
+            class_weight[0, 0] = torch.sum(mask == 0)
+            class_weight[1, 0] = torch.sum(mask == 1)
+            class_weight = class_weight * 1.0 / torch.min(class_weight)
+            class_weight = torch.sum(class_weight) - class_weight
+
         if self.weight_map:
             w_map = np.load(self.maps_dir + str(self.indices[idx]).zfill(3) + '.npy')
             w_map = torch.tensor(w_map).unsqueeze(0).to(torch.float32)
@@ -51,12 +58,12 @@ class SNEMI3DDataset(torch.utils.data.Dataset):
                 image, mask, w_map = self.transform(image, mask, w_map)
             image = self.norm(image)
             # print(image.shape, mask.shape, w_map.shape)
-            return image, mask, w_map
+            return image, mask, w_map, class_weight
         else:
             if self.transform != None:
                 image, mask = self.transform((image, mask))
             image = self.norm(image)
-            return image, mask, torch.empty(0)
+            return image, mask, torch.empty(0), class_weight
     
 # test
 if __name__ == "__main__":

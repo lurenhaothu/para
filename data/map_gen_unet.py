@@ -33,10 +33,10 @@ for i in range(100):
     mask = (mask == 255).astype(int)
     mask_label, num = label(mask, background=1, connectivity=1, return_num=True)
 
-    dis_map = np.zeros((num - 1, 1024, 1024))
+    dis_map = np.zeros((num, 1024, 1024))
 
     with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(get_dis_map, j, mask_label) for j in range(1, num)]
+        futures = [executor.submit(get_dis_map, j, mask_label) for j in range(1, num + 1)]
 
         for future in futures:
             j, dis_map_j = future.result()
@@ -47,7 +47,7 @@ for i in range(100):
     #sum_dis_map = np.sum(np.partition(dis_map * mask, 2, axis=0)[0:2, :, :], axis=0)
     
     with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(get_first_2, j, dis_map[:, j:j+1, :]) for j in range(1, 1024)]
+        futures = [executor.submit(get_first_2, j, dis_map[:, j:j+1, :]) for j in range(1024)]
 
         for future in futures:
             j, chunk = future.result()
