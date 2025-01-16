@@ -46,7 +46,7 @@ class SPMILoss(torch.nn.Module):
                 w_map = self.sp_map(sp_mask) * self.map_weight
             else:
                 w_map = None
-        loss = self.BCEW(mask, pred, w_map, class_weight) * self.lamb
+        loss = self.BCEW(mask, pred, None, class_weight) * self.lamb
         #for i in range(self.sp.N):
         #    loss += math.pow(self.beta, self.sp.N - i - 1) * mi_output[i] * self.mag
         return loss
