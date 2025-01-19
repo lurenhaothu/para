@@ -28,6 +28,29 @@ sp_map = SPMap()
 
 a = sp_map(sp_output)
 
-plt.imshow(a.cpu().squeeze().numpy())
-plt.show()
+#plt.imshow(a.cpu().squeeze().numpy())
+#plt.show()
 
+path = "C:/Users/Renhao Lu/Desktop/dwt/test.jpg"
+
+imgg = torchvision.transforms.Grayscale(num_output_channels=1)(torchvision.transforms.ToTensor()(Image.open(path)))
+
+C, H, W = imgg.shape
+
+cf = torch.zeros((C, H, W), dtype=torch.cfloat)
+
+f = torch.fft.rfft2(imgg)
+
+C, FH, FW = f.shape
+
+cf[:, :, 0:FW] = f[:, :, 0:FW] * 2
+# cf[:, 0, 0] = cf[:, 0, 0] / 2
+
+im = torch.fft.ifft2(cf)
+
+fig, axe = plt.subplots(2,2)
+axe[0][0].imshow(im.real.squeeze().cpu().numpy())
+axe[0][1].imshow(im.imag.squeeze().cpu().numpy())
+axe[1][0].imshow(im.abs().squeeze().cpu().numpy())
+axe[1][1].imshow(im.angle().squeeze().cpu().numpy())
+plt.show()

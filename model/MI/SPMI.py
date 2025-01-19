@@ -1,7 +1,9 @@
 import torch
 import torchvision
-from model.MI.steerable import SteerablePyramid
+# from model.MI.steerable import SteerablePyramid
 #from steerable import SteerablePyramid
+
+from ComplexSteerablePyramid import ComplexSteerablePyramid
 import model.loss as loss
 
 from PIL import Image
@@ -17,7 +19,7 @@ _POS_ALPHA = 5e-4
 class SPMILoss(torch.nn.Module):
     def __init__(self, imageSize, spN = 4, spK=4, beta=0.25, lamb=0.5, mag=1, map_method=2, map_weight=1, ffl: bool=False):
         super(SPMILoss, self).__init__()
-        self.sp = SteerablePyramid(imgSize=imageSize, N=spN, K=spK)
+        self.sp = ComplexSteerablePyramid(Complex=imgSize=imageSize, N=spN, K=spK)
         self.beta = beta
         self.ffl = ffl
         self.lamb = lamb
