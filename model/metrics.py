@@ -8,6 +8,9 @@ import math
 import matplotlib.pyplot as plt
 from sklearn.metrics.cluster import adjusted_rand_score
 
+def hausdorff_distance(pred: np.array, mask: np.array):
+    return metrics.hausdorff_distance(pred, mask, method='modified')
+
 
 def vi(pred: np.array, mask: np.array):
     mask_label = label(mask, background=1, connectivity=1)
