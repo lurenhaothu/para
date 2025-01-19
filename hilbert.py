@@ -23,5 +23,5 @@ loss2 = SPMILoss(complex=False, spN=4, spK=12)
 
 print(loss1(img1, img2, None, torch.reshape(torch.tensor([1,1]), (1,2,1)).cuda()))
 
-print(loss2(img1, img2, None, torch.reshape(torch.tensor([1,1]), (1,2,1)).cuda()))
+print(loss2(img1, img2, None, torch.reshape(torch.tensor([1,1]), (1,2,1)).cuda())) 
 
